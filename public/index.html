@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Hive Poker — Prototype</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="header">
+        <h1>Hive Poker — Prototype</h1>
+        <div class="login">
+          <input id="username" placeholder="Enter name (or Hive handle)" />
+          <button id="btnLogin">Join</button>
+        </div>
+      </header>
+
+      <main class="main">
+        <section class="table-area">
+          <div class="table-board">
+            <!-- centered pot -->
+            <div class="pot-display">Pot: <span id="pot">0</span></div>
+
+            <!-- community cards -->
+            <div class="community">
+              <div id="community-cards" class="cards-row"></div>
+            </div>
+
+            <!-- seats -->
+            <div id="seats" class="seats"></div>
+          </div>
+
+          <div class="controls">
+            <button id="btnStart">Start Game</button>
+            <button id="fold">Fold</button>
+            <button id="call">Call / Check</button>
+
+            <div class="raise-controls">
+              <input id="raise-range" type="range" min="0" max="100" step="1" />
+              <input id="raise-input" type="number" min="0" value="20" />
+              <button id="raise">Raise</button>
+              <span id="raise-max" class="raise-hint"></span>
+            </div>
+          </div>
+        </section>
+
+        <aside class="sidebar">
+          <h3>Your Info</h3>
+          <div id="myInfo">Not connected</div>
+          <h4>Players</h4>
+          <div id="playersList"></div>
+          <h4>Log</h4>
+          <div id="log" class="log"></div>
+        </aside>
+      </main>
+
+      <footer class="footer">
+        <small
+          >Fake chips only • Minimal Hive branding • Texas Hold’em demo</small
+        >
+      </footer>
+    </div>
+
+    <script src="/client.js"></script>
+  </body>
+</html>
