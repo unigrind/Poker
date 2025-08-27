@@ -493,64 +493,71 @@ function broadcastState() {
 
 /** ---------- WS handlers ---------- **/
 wss.on("connection", (ws) => {
-  ws.id = uuidv4();
+  let player = TABLE.players[ws.id]; // Try to reuse existing player if reconnecting
+
+  // If no player exists, create a new one
+  if (!player) {
+    ws.id = uuidv4();
+    player = {
+      id: ws.id,
+      name: `Guest${Object.keys(TABLE.players).length + 1}`, // Default name
+      ws,
+      seat: null,
+      chips: 1000,
+      cards: [],
+      folded: true,
+      active: false,
+      bet: 0,
+      lastAction: null,
+    };
+    TABLE.players[ws.id] = player;
+    sendTo(player, { type: "joined", id: ws.id, name: player.name });
+    broadcastState();
+  } else {
+    // Reconnect case: update WebSocket
+    player.ws = ws;
+    sendTo(player, { type: "reconnected", id: ws.id, name: player.name });
+  }
 
   ws.on("message", (raw) => {
     try {
       const data = JSON.parse(raw);
       if (data.type === "join") {
-        const id = ws.id;
-        const name = (data.name || "Guest").slice(0, 20);
-        TABLE.players[id] = {
-          id,
-          name,
-          ws,
-          seat: null,
-          chips: 1000,
-          cards: [],
-          folded: true,
-          active: false,
-          bet: 0,
-          lastAction: null,
-        };
-        sendTo(TABLE.players[id], { type: "joined", id, name });
+        if (player.seat !== null) {
+          sendTo(player, { type: "error", message: "Already seated, cannot join again" });
+          return;
+        }
+        player.name = (data.name || player.name).slice(0, 20);
+        sendTo(player, { type: "joined", id: ws.id, name: player.name });
         broadcastState();
       } else if (data.type === "take-seat") {
+        if (player.seat !== null) {
+          sendTo(player, { type: "error", message: "Already seated, cannot take another seat" });
+          return;
+        }
         if (TABLE.game) {
-          sendTo(TABLE.players[ws.id], {
-            type: "error",
-            message: "Game in progress: cannot change seats",
-          });
+          sendTo(player, { type: "error", message: "Game in progress: cannot change seats" });
           return;
         }
         const seat = data.seat;
-        if (seat < 0 || seat > 5) return;
-        if (TABLE.seats[seat] === null) {
-          const prev = TABLE.players[ws.id].seat;
-          if (prev !== null && prev !== undefined) TABLE.seats[prev] = null;
-          TABLE.seats[seat] = ws.id;
-          const p = TABLE.players[ws.id];
-          p.seat = seat;
-          p.active = true;
-          p.folded = false;
-          logToAll(`${p.name} took seat ${seat + 1}.`);
-        }
+        if (seat < 0 || seat > 5 || TABLE.seats[seat] !== null) return;
+        TABLE.seats[seat] = ws.id;
+        player.seat = seat;
+        player.active = true;
+        player.folded = false;
+        logToAll(`${player.name} took seat ${seat + 1}.`);
         broadcastState();
       } else if (data.type === "leave-seat") {
         if (TABLE.game) {
-          sendTo(TABLE.players[ws.id], {
-            type: "error",
-            message: "Game in progress: cannot change seats",
-          });
+          sendTo(player, { type: "error", message: "Game in progress: cannot change seats" });
           return;
         }
-        const p = TABLE.players[ws.id];
-        if (p && p.seat !== null) {
-          TABLE.seats[p.seat] = null;
-          p.seat = null;
-          p.active = false;
-          p.folded = true;
-          logToAll(`${p.name} left their seat.`);
+        if (player.seat !== null) {
+          TABLE.seats[player.seat] = null;
+          player.seat = null;
+          player.active = false;
+          player.folded = true;
+          logToAll(`${player.name} left their seat.`);
           broadcastState();
         }
       } else if (data.type === "start-game") {
@@ -566,6 +573,22 @@ wss.on("connection", (ws) => {
   ws.on("close", () => {
     const p = TABLE.players[ws.id];
     if (p) {
+      logToAll(`${p.name} disconnected.`);
+
+      if (TABLE.game) {
+        p.folded = true;
+        p.active = false;
+
+        if (TABLE.game.turnPlayerId === ws.id) {
+          clearTurnTimer();
+          advanceTurnAfterAction("fold");
+        }
+
+        if (numActive(TABLE.game) <= 1) {
+          awardPotAndEnd();
+        }
+      }
+
       if (p.seat !== null) TABLE.seats[p.seat] = null;
       delete TABLE.players[ws.id];
       broadcastState();
