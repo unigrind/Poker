@@ -1,0 +1,15 @@
+{
+  "name": "hive-poker-prototype",
+  "version": "0.1.0",
+  "description": "Simple Hive-themed poker prototype (fake chips)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "pokersolver": "^2.1.4",
+    "uuid": "^11.1.0",
+    "ws": "^8.18.3"
+  }
+}
